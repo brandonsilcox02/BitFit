@@ -4313,6 +4313,34 @@ document.querySelectorAll('.modal-overlay').forEach(overlay=>{
 
 updateHeader();
 
+// ── Real-time sync — listens for changes from other devices ──
+let _realtimeChannel = null;
+
+function startRealtime(){
+  if(!_currentUser) return;
+  // Clean up any existing subscription
+  if(_realtimeChannel) sb.removeChannel(_realtimeChannel);
+
+  _realtimeChannel = sb
+    .channel('user_data_changes')
+    .on('postgres_changes',
+      { event:'UPDATE', schema:'public', table:'user_data',
+        filter:`user_id=eq.${_currentUser.id}` },
+      (payload) => {
+        // Another device saved — pull the new data in
+        if(payload.new?.data){
+          initState(payload.new.data);
+          lsSave();
+          renderCurrentView();
+          setTimeout(renderWeightLine, 120);
+          setSyncState('ok');
+          showToast('🔄 Synced from another device');
+        }
+      }
+    )
+    .subscribe();
+}
+
 // ── BOOT: check auth state then start app ──
 async function boot(){
   const { data:{ session } } = await sb.auth.getSession();
@@ -4320,10 +4348,10 @@ async function boot(){
     _currentUser = session.user;
     document.getElementById('authScreen').classList.add('hidden');
     document.getElementById('syncDot').style.display='block';
-    // Always load from cloud first — then render
     await cloudLoad();
     switchView('dashboard', document.getElementById('hutilHome'));
     setTimeout(renderWeightLine, 120);
+    startRealtime(); // start listening for changes from other devices
   } else {
     document.getElementById('authScreen').classList.remove('hidden');
   }
@@ -4338,9 +4366,11 @@ sb.auth.onAuthStateChange(async (event, session)=>{
     await cloudLoad();
     switchView('dashboard', document.getElementById('hutilHome'));
     setTimeout(renderWeightLine, 120);
+    startRealtime();
   }
   if(event==='SIGNED_OUT'){
     _currentUser=null;
+    if(_realtimeChannel) sb.removeChannel(_realtimeChannel);
     document.getElementById('authScreen').classList.remove('hidden');
   }
 });
