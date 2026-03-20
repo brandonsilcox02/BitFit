@@ -1781,14 +1781,12 @@ async function cloudLoad(){
     // Fall back to localStorage if cloud fails
     initState(lsLoad());
     seedDemo();
-    renderCurrentView();
-    setTimeout(renderWeightLine, 120);
     return;
   }
   if(data?.data && Object.keys(data.data).length > 0){
-    // Got cloud data — use it, overwrite local cache
+    // Always trust cloud over local cache
     initState(data.data);
-    lsSave();
+    lsSave(); // update local cache to match
   } else {
     // No cloud data yet — seed demo and save to cloud
     initState({});
@@ -1796,8 +1794,6 @@ async function cloudLoad(){
     await cloudSave();
   }
   setSyncState('ok');
-  renderCurrentView();
-  setTimeout(renderWeightLine, 120);
 }
 
 // ── Cloud save (immediate, for first-time seed) ──
@@ -4325,9 +4321,10 @@ async function boot(){
     _currentUser = session.user;
     document.getElementById('authScreen').classList.add('hidden');
     document.getElementById('syncDot').style.display='block';
-    // Always load from cloud — this is the source of truth
+    // Always load from cloud first — then render
     await cloudLoad();
     switchView('dashboard', document.getElementById('hutilHome'));
+    setTimeout(renderWeightLine, 120);
   } else {
     document.getElementById('authScreen').classList.remove('hidden');
   }
@@ -4341,6 +4338,7 @@ sb.auth.onAuthStateChange(async (event, session)=>{
     document.getElementById('syncDot').style.display='block';
     await cloudLoad();
     switchView('dashboard', document.getElementById('hutilHome'));
+    setTimeout(renderWeightLine, 120);
   }
   if(event==='SIGNED_OUT'){
     _currentUser=null;
