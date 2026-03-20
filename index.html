@@ -1709,7 +1709,7 @@ async function sendMagicLink(){
   msg.className='auth-msg info'; msg.textContent='';
   const {error} = await sb.auth.signInWithOtp({
     email,
-    options:{ emailRedirectTo: window.location.href }
+    options:{ emailRedirectTo: 'https://bit-fit.vercel.app' }
   });
   btn.disabled=false; btn.textContent='Send Magic Link';
   if(error){ msg.className='auth-msg error'; msg.textContent=error.message; }
