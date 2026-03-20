@@ -1775,16 +1775,22 @@ async function cloudLoad(){
     .select('data')
     .eq('user_id', _currentUser.id)
     .single();
-  if(error && error.code !== 'PGRST116'){ // PGRST116 = no rows
+  if(error && error.code !== 'PGRST116'){
     setSyncState('error');
     console.warn('Cloud load error:', error.message);
+    // Fall back to localStorage if cloud fails
+    initState(lsLoad());
+    seedDemo();
+    renderCurrentView();
+    setTimeout(renderWeightLine, 120);
     return;
   }
   if(data?.data && Object.keys(data.data).length > 0){
+    // Got cloud data — use it, overwrite local cache
     initState(data.data);
     lsSave();
   } else {
-    // First time user — seed demo data then save to cloud
+    // No cloud data yet — seed demo and save to cloud
     initState({});
     seedDemo();
     await cloudSave();
@@ -1794,21 +1800,27 @@ async function cloudLoad(){
   setTimeout(renderWeightLine, 120);
 }
 
-// ── Cloud save (debounced) ──
+// ── Cloud save (immediate, for first-time seed) ──
+async function cloudSave(){
+  if(!_currentUser) return;
+  const {error} = await sb
+    .from('user_data')
+    .upsert({user_id: _currentUser.id, data: S, updated_at: new Date().toISOString()},
+            {onConflict:'user_id'});
+  if(error) console.warn('Cloud save error:', error.message);
+}
+
+// ── Cloud save (debounced, for every user action) ──
 let _saveTimer = null;
 function persist(){
-  lsSave(); // Always save locally immediately
+  lsSave();
   if(!_currentUser) return;
   setSyncState('syncing');
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(async ()=>{
-    const {error} = await sb
-      .from('user_data')
-      .upsert({user_id: _currentUser.id, data: S, updated_at: new Date().toISOString()},
-              {onConflict:'user_id'});
-    setSyncState(error ? 'error' : 'ok');
-    if(error) console.warn('Cloud save error:', error.message);
-  }, 800); // debounce — wait 800ms after last change before saving
+    await cloudSave();
+    setSyncState('ok');
+  }, 800);
 }
 
 const getDay = dk => {
@@ -4310,15 +4322,10 @@ async function boot(){
     _currentUser = session.user;
     document.getElementById('authScreen').classList.add('hidden');
     document.getElementById('syncDot').style.display='block';
-    // Render immediately from local cache so app feels instant
-    initState(lsLoad());
-    seedDemo();
-    switchView('dashboard', document.getElementById('hutilHome'));
-    setTimeout(renderWeightLine, 120);
-    // Then sync from cloud in background
+    // Always load from cloud — this is the source of truth
     await cloudLoad();
+    switchView('dashboard', document.getElementById('hutilHome'));
   } else {
-    // Not logged in — show auth screen
     document.getElementById('authScreen').classList.remove('hidden');
   }
 }
@@ -4329,11 +4336,8 @@ sb.auth.onAuthStateChange(async (event, session)=>{
     _currentUser = session.user;
     document.getElementById('authScreen').classList.add('hidden');
     document.getElementById('syncDot').style.display='block';
-    initState(lsLoad());
-    seedDemo();
-    switchView('dashboard', document.getElementById('hutilHome'));
-    setTimeout(renderWeightLine, 120);
     await cloudLoad();
+    switchView('dashboard', document.getElementById('hutilHome'));
   }
   if(event==='SIGNED_OUT'){
     _currentUser=null;
