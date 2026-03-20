@@ -1739,14 +1739,15 @@ function setSyncState(state){
 // STATE
 // ═══════════════════════════════════════════
 
-// localStorage fallback for offline resilience
+// localStorage — offline fallback only, never used as primary source
 const lsLoad  = () => { try{return JSON.parse(localStorage.getItem('grind_v7')||'{}');}catch{return{};} };
 const lsSave  = () => { try{localStorage.setItem('grind_v7', JSON.stringify(S));}catch{} };
 
-let S = lsLoad(); // Start with local cache immediately so UI isn't blank
+// Start with empty state — cloudLoad will populate it
+let S = {};
 
 function initState(data){
-  if(data) S = data;
+  if(data && Object.keys(data).length > 0) S = data;
   if (!S.days)           S.days = {};
   if (!S.recurringTasks) S.recurringTasks = [];
   if (!S.plans)          S.plans = [
@@ -1763,8 +1764,6 @@ function initState(data){
   if (!S.weightLog)   S.weightLog   = [];
   if (!S.height)      S.height      = null;
 }
-
-initState(lsLoad());
 
 // ── Cloud load ──
 async function cloudLoad(){
