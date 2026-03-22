@@ -1779,17 +1779,15 @@ async function cloudLoad(){
     console.warn('Cloud load error:', error.message);
     // Fall back to localStorage if cloud fails
     initState(lsLoad());
-    seedDemo();
-    return;
+      return;
   }
   if(data?.data && Object.keys(data.data).length > 0){
     // Always trust cloud over local cache
     initState(data.data);
     lsSave(); // update local cache to match
   } else {
-    // No cloud data yet — seed demo and save to cloud
+    // New user — start clean
     initState({});
-    seedDemo();
     await cloudSave();
   }
   setSyncState('ok');
@@ -1831,282 +1829,6 @@ const getDay = dk => {
   return S.days[dk];
 };
 
-// ═══════════════════════════════════════════
-// SEED DEMO
-// ═══════════════════════════════════════════
-function seedDemo() {
-  if (S.seeded) return;
-
-  // ── Phase definitions (days ago ranges, working backwards from today) ──
-  // Phase 1: days 90–61 — Strong start, motivated, consistent
-  // Phase 2: days 60–46 — Slump. Busy/unmotivated. Skipping gym, poor food
-  // Phase 3: days 45–31 — Gradual rebuild. Getting back on track
-  // Phase 4: days 30–15 — Peak performance. Best period. Nailing everything
-  // Phase 5: days 14–1  — Solid but human. Mostly good with realistic gaps
-
-  const dk = i => { const d=new Date(); d.setDate(d.getDate()-i); return d.toISOString().slice(0,10); };
-
-  const gym    = (name='Gym Session',    dur=55, cal=420, hr=141) => ({id:'a'+Math.random(),type:'gym',       name, duration:dur, calories:cal, hr, distance:null});
-  const run    = (name='Morning Run',    dur=35, dist=5.2,cal=310,hr=158) => ({id:'a'+Math.random(),type:'run',       name, duration:dur, calories:cal, hr, distance:dist});
-  const pickle = (name='Pickleball',     dur=60, cal=380, hr=145) => ({id:'a'+Math.random(),type:'pickleball',name, duration:dur, calories:cal, hr, distance:null});
-  const other  = (name='Yoga / Stretch', dur=30, cal=120, hr=95)  => ({id:'a'+Math.random(),type:'other',     name, duration:dur, calories:cal, hr, distance:null});
-
-  const hiProt  = [
-    {id:'f1',name:'Oats & Banana',      meal:'Breakfast',  cal:380,protein:12, carbs:68,fat:6},
-    {id:'f2',name:'Chicken & Rice',     meal:'Lunch',      cal:520,protein:52, carbs:55,fat:8},
-    {id:'f3',name:'Greek Yoghurt & Berries',meal:'Snack',  cal:145,protein:11, carbs:17,fat:3},
-    {id:'f4',name:'Salmon Fillet',      meal:'Dinner',     cal:350,protein:38, carbs:10,fat:16},
-  ];
-  const modProt = [
-    {id:'f5',name:'Eggs on Toast',      meal:'Breakfast',  cal:290,protein:18, carbs:26,fat:12},
-    {id:'f6',name:'Tuna Rice Bowl',     meal:'Lunch',      cal:430,protein:38, carbs:52,fat:5},
-    {id:'f7',name:'Whey Protein Shake', meal:'Post-workout',cal:120,protein:24,carbs:3, fat:2},
-    {id:'f8',name:'Chicken & Rice',     meal:'Dinner',     cal:520,protein:52, carbs:55,fat:8},
-  ];
-  const loProt  = [
-    {id:'f9', name:'Flat White',        meal:'Breakfast',  cal:130,protein:7,  carbs:10,fat:6},
-    {id:'f10',name:'Sushi Roll',        meal:'Lunch',      cal:250,protein:8,  carbs:48,fat:3},
-    {id:'f11',name:'Granola',           meal:'Snack',      cal:225,protein:5,  carbs:30,fat:9},
-  ];
-  const junkDay = [
-    {id:'f12',name:'Flat White',        meal:'Breakfast',  cal:130,protein:7,  carbs:10,fat:6},
-    {id:'f13',name:'Subway 6" Chicken', meal:'Lunch',      cal:330,protein:26, carbs:42,fat:5},
-    {id:'f14',name:'Dark Chocolate 70%',meal:'Snack',      cal:170,protein:2,  carbs:13,fat:12},
-  ];
-  const emptyDay = [];
-
-  // ── PHASE 1: Days 90–61 — Strong start ──
-  // 5x gym/week, good nutrition, consistent
-  const p1Schedule = {
-    90:{acts:[gym('Upper Body Push',60,450,142)],           meals:hiProt,  steps:9200, note:'First day back on a proper programme. Feeling good.'},
-    89:{acts:[run('Easy 5k',30,4.8,260,148)],              meals:modProt, steps:11200,note:''},
-    88:{acts:[gym('Lower Body',65,480,138)],                meals:hiProt,  steps:8800, note:''},
-    87:{acts:[],                                            meals:modProt, steps:6200, note:''},
-    86:{acts:[gym('Pull Day',55,400,140)],                  meals:hiProt,  steps:9500, note:''},
-    85:{acts:[pickle('Pickleball with friends',60,380,148)],meals:modProt, steps:12400,note:'Great game today'},
-    84:{acts:[],                                            meals:modProt, steps:5100, note:'Rest day'},
-    83:{acts:[gym('Chest & Shoulders',60,440,143)],         meals:hiProt,  steps:9800, note:''},
-    82:{acts:[run('Interval Run',40,6.1,355,165)],          meals:modProt, steps:13200,note:'Best run in weeks'},
-    81:{acts:[gym('Deadlift Day',70,510,135)],              meals:hiProt,  steps:8600, note:''},
-    80:{acts:[],                                            meals:modProt, steps:7200, note:''},
-    79:{acts:[gym('Arms & Core',50,370,141)],               meals:hiProt,  steps:9100, note:''},
-    78:{acts:[run('5k Recovery Run',32,4.9,278,150)],       meals:modProt, steps:10800,note:''},
-    77:{acts:[],                                            meals:loProt,  steps:4800, note:'Long day, skipped cook'},
-    76:{acts:[gym('Upper Body Push',62,455,144)],           meals:hiProt,  steps:9300, note:''},
-    75:{acts:[pickle('Sunday Pickleball',75,460,150)],      meals:modProt, steps:14200,note:'3 sets, feeling sharp'},
-    74:{acts:[],                                            meals:modProt, steps:5600, note:''},
-    73:{acts:[gym('Lower Body',68,490,139)],                meals:hiProt,  steps:9700, note:''},
-    72:{acts:[run('Morning Run',35,5.3,315,156)],           meals:modProt, steps:11500,note:''},
-    71:{acts:[gym('Pull Day',56,410,140)],                  meals:hiProt,  steps:9200, note:''},
-    70:{acts:[],                                            meals:modProt, steps:6800, note:''},
-    69:{acts:[gym('Chest & Shoulders',58,430,142)],         meals:hiProt,  steps:8900, note:''},
-    68:{acts:[run('Long Run',50,7.8,470,160)],              meals:modProt, steps:14800,note:'New distance PB'},
-    67:{acts:[gym('Deadlift Day',72,520,136)],              meals:hiProt,  steps:9400, note:''},
-    66:{acts:[],                                            meals:loProt,  steps:4200, note:''},
-    65:{acts:[gym('Arms & Core',52,380,140)],               meals:modProt, steps:8700, note:''},
-    64:{acts:[pickle('Pickleball',60,375,146)],             meals:modProt, steps:13100,note:''},
-    63:{acts:[],                                            meals:modProt, steps:5900, note:''},
-    62:{acts:[gym('Full Body',65,470,141)],                 meals:hiProt,  steps:9600, note:'Month 1 done. Feeling strong.'},
-    61:{acts:[run('5k',34,5.1,300,154)],                    meals:modProt, steps:10900,note:''},
-  };
-
-  // ── PHASE 2: Days 60–46 — The slump ──
-  const p2Schedule = {
-    60:{acts:[],          meals:loProt,  steps:3800, note:'Feeling flat. Skipped gym.'},
-    59:{acts:[gym('Gym',45,320,138)],meals:loProt,  steps:6200, note:''},
-    58:{acts:[],          meals:junkDay, steps:4100, note:'Work stress. Bad eating.'},
-    57:{acts:[],          meals:junkDay, steps:3200, note:''},
-    56:{acts:[],          meals:emptyDay,steps:2900, note:'Barely moved today'},
-    55:{acts:[gym('Gym',40,290,135)],meals:loProt,  steps:5800, note:''},
-    54:{acts:[],          meals:junkDay, steps:3500, note:''},
-    53:{acts:[],          meals:emptyDay,steps:2800, note:''},
-    52:{acts:[],          meals:loProt,  steps:4600, note:''},
-    51:{acts:[run('Short Run',22,3.1,180,152)],meals:loProt,steps:7200,note:'At least I ran'},
-    50:{acts:[],          meals:junkDay, steps:3100, note:''},
-    49:{acts:[],          meals:emptyDay,steps:2600, note:'Lowest point. Need to reset.'},
-    48:{acts:[gym('Gym',42,305,136)],meals:loProt,  steps:5900, note:''},
-    47:{acts:[],          meals:loProt,  steps:4300, note:''},
-    46:{acts:[],          meals:junkDay, steps:3700, note:''},
-  };
-
-  // ── PHASE 3: Days 45–31 — Rebuilding ──
-  const p3Schedule = {
-    45:{acts:[gym('Back to it',50,360,139)],meals:modProt,steps:7800,note:'Reset. Starting fresh.'},
-    44:{acts:[run('Easy Run',28,4.2,245,150)],meals:modProt,steps:9200,note:''},
-    43:{acts:[],           meals:modProt, steps:6100, note:''},
-    42:{acts:[gym('Gym',55,395,140)],meals:modProt,steps:8400,note:''},
-    41:{acts:[pickle('Pickleball',60,370,144)],meals:modProt,steps:11800,note:'Good to be back'},
-    40:{acts:[],           meals:modProt, steps:5500, note:''},
-    39:{acts:[gym('Gym',58,415,141)],meals:hiProt,steps:9100,note:''},
-    38:{acts:[run('5k',33,5.0,292,155)],meals:modProt,steps:10600,note:''},
-    37:{acts:[gym('Gym',60,430,142)],meals:hiProt,steps:9300,note:'Nutrition locked back in'},
-    36:{acts:[],           meals:modProt, steps:6400, note:''},
-    35:{acts:[gym('Gym',62,445,143)],meals:hiProt,steps:9600,note:''},
-    34:{acts:[run('Run',36,5.4,318,157)],meals:modProt,steps:11200,note:''},
-    33:{acts:[other('Yoga',30,110,92)], meals:modProt,steps:7800,note:''},
-    32:{acts:[gym('Gym',60,435,141)],meals:hiProt,steps:9400,note:''},
-    31:{acts:[pickle('Pickleball',65,400,148)],meals:modProt,steps:13600,note:'Back to form'},
-  };
-
-  // ── PHASE 4: Days 30–15 — Peak performance ──
-  const p4Schedule = {
-    30:{acts:[gym('Upper Push',65,470,144)],meals:hiProt,steps:10200,note:'Best week incoming. Locked in.'},
-    29:{acts:[run('Interval Run',42,6.4,378,167)],meals:hiProt,steps:13800,note:'New pace PB'},
-    28:{acts:[gym('Lower Body',70,510,140)],meals:hiProt,steps:9800,note:''},
-    27:{acts:[other('Yoga',35,125,90)],meals:hiProt,steps:7200,note:''},
-    26:{acts:[gym('Pull Day',62,450,142)],meals:hiProt,steps:10500,note:''},
-    25:{acts:[pickle('Pickleball',75,470,152)],meals:hiProt,steps:15200,note:'Won all 3 sets. Flying.'},
-    24:{acts:[],meals:hiProt,steps:8600,note:'Active rest'},
-    23:{acts:[gym('Chest & Shoulders',68,490,145)],meals:hiProt,steps:10800,note:''},
-    22:{acts:[run('Long Run',55,8.6,510,162)],meals:hiProt,steps:16200,note:'8.6km PB. Unreal.'},
-    21:{acts:[gym('Deadlift Day',75,540,137)],meals:hiProt,steps:10100,note:'PB on deadlift'},
-    20:{acts:[other('Yoga',30,115,91)],meals:hiProt,steps:7800,note:''},
-    19:{acts:[gym('Arms & Core',58,420,142)],meals:hiProt,steps:9900,note:''},
-    18:{acts:[pickle('Pickleball',70,435,149)],meals:hiProt,steps:14400,note:''},
-    17:{acts:[gym('Full Body',65,470,143)],meals:hiProt,steps:10300,note:'Best 2 weeks of training'},
-    16:{acts:[run('5k',31,5.5,320,156)],meals:hiProt,steps:12800,note:''},
-    15:{acts:[gym('Upper Push',66,475,144)],meals:hiProt,steps:10600,note:'Peak week done'},
-  };
-
-  // ── PHASE 5: Days 14–1 — Solid, real ──
-  const p5Schedule = {
-    14:{acts:[run('Morning Run',36,5.4,318,155)],meals:modProt,steps:11400,note:''},
-    13:{acts:[gym('Gym',62,445,141)],meals:hiProt,steps:9800,note:''},
-    12:{acts:[],meals:modProt,steps:6200,note:''},
-    11:{acts:[gym('Gym',60,435,141)],meals:hiProt,steps:9500,note:''},
-    10:{acts:[pickle('Pickleball',65,405,147)],meals:modProt,steps:13200,note:'Good game'},
-    9: {acts:[],meals:loProt,steps:5100,note:'Tired — needed the rest'},
-    8: {acts:[gym('Gym',58,420,140)],meals:hiProt,steps:9400,note:''},
-    7: {acts:[run('Run',38,5.7,335,158)],meals:modProt,steps:12100,note:''},
-    6: {acts:[gym('Gym',64,460,143)],meals:hiProt,steps:10200,note:''},
-    5: {acts:[],meals:modProt,steps:7100,note:''},
-    4: {acts:[gym('Gym',62,448,142)],meals:hiProt,steps:9700,note:''},
-    3: {acts:[pickle('Pickleball',60,378,146)],meals:modProt,steps:12800,note:''},
-    2: {acts:[run('Easy Run',30,4.5,262,150)],meals:modProt,steps:10600,note:''},
-    1: {acts:[gym('Gym',60,435,141)],meals:hiProt,steps:9900,note:'Good week. Feeling consistent.'},
-  };
-
-  // Write all days
-  const allPhases={...p1Schedule,...p2Schedule,...p3Schedule,...p4Schedule,...p5Schedule};
-
-  // ── Sleep seed data ─────────────────────────────────────────────────────
-  // Shape matches Garmin Connect API: bedtime, waketime, duration(mins),
-  // deep/rem/light/awake(mins), score(0-100), source
-  const sl=(bed,wake,deep,rem,light,awake,score)=>{
-    const [bh,bm]=bed.split(':').map(Number);
-    const [wh,wm]=wake.split(':').map(Number);
-    let dur=(wh*60+wm)-(bh*60+bm); if(dur<0)dur+=1440;
-    return {bedtime:bed,waketime:wake,duration:dur,deep,rem,light,awake,score,source:'garmin'};
-  };
-  // Phase 1 (90-61): consistent 7-8h, good scores
-  // Phase 2 (60-46): late nights, poor quality, scores in the 40-60s
-  // Phase 3 (45-31): recovering, scores creeping back up
-  // Phase 4 (30-15): peak — 8h+, scores 85-92
-  // Phase 5 (14-1):  solid with one or two rough nights
-  const sleepData={
-    90:sl('22:15','06:20',82,105,148,25,81), 89:sl('22:30','06:45',75,98,155,22,78),
-    88:sl('22:00','06:15',90,112,140,18,85), 87:sl('23:00','07:00',70,95,175,30,74),
-    86:sl('22:20','06:30',88,108,144,20,83), 85:sl('22:45','06:50',76,100,158,26,79),
-    84:sl('23:15','07:30',72,92,166,30,75),  83:sl('22:10','06:25',91,110,142,17,86),
-    82:sl('22:30','06:40',85,105,148,22,82), 81:sl('22:00','06:10',93,115,138,14,88),
-    80:sl('23:00','07:10',69,90,171,30,73),  79:sl('22:20','06:35',87,107,146,20,83),
-    78:sl('22:45','06:55',78,102,152,28,79), 77:sl('23:30','07:20',65,85,180,30,70),
-    76:sl('22:15','06:20',89,109,144,18,84), 75:sl('22:00','06:00',94,116,136,14,89),
-    74:sl('23:00','07:15',68,88,174,30,72),  73:sl('22:25','06:30',86,106,147,21,82),
-    72:sl('22:40','06:50',80,100,155,25,80), 71:sl('22:10','06:20',92,112,140,16,87),
-    70:sl('23:15','07:25',66,87,177,30,71),  69:sl('22:30','06:40',84,104,149,23,81),
-    68:sl('22:00','06:05',95,117,135,13,90), 67:sl('22:20','06:30',88,108,144,20,84),
-    66:sl('23:45','07:40',60,80,190,30,67),  65:sl('22:45','06:55',77,101,154,28,78),
-    64:sl('22:00','06:10',93,113,138,16,87), 63:sl('23:00','07:05',70,92,168,30,74),
-    62:sl('22:15','06:25',90,110,142,18,85), 61:sl('22:30','06:45',82,103,150,25,80),
-    // Phase 2 — slump: late nights, poor sleep
-    60:sl('00:30','07:00',52,72,196,40,58),  59:sl('23:45','06:50',58,78,184,40,62),
-    58:sl('01:00','07:30',45,65,210,40,52),  57:sl('01:15','07:15',42,60,218,40,49),
-    56:sl('00:45','07:10',50,70,200,40,55),  55:sl('23:30','06:40',62,82,176,40,65),
-    54:sl('01:30','07:45',40,58,222,40,46),  53:sl('01:00','07:20',48,68,204,40,53),
-    52:sl('00:15','07:00',55,75,190,40,60),  51:sl('23:45','07:00',60,80,180,40,64),
-    50:sl('01:00','07:30',44,64,212,40,50),  49:sl('02:00','08:00',38,55,227,40,44),
-    48:sl('23:30','06:45',63,83,174,40,66),  47:sl('00:30','07:10',53,73,194,40,58),
-    46:sl('01:15','07:40',42,62,216,40,48),
-    // Phase 3 — rebuilding
-    45:sl('22:45','06:45',70,92,168,30,73),  44:sl('22:30','06:40',74,96,162,28,76),
-    43:sl('23:00','07:00',68,90,172,30,72),  42:sl('22:20','06:30',78,100,156,26,79),
-    41:sl('22:45','06:55',72,94,166,28,75),  40:sl('23:15','07:20',65,86,179,30,69),
-    39:sl('22:30','06:40',76,98,158,28,78),  38:sl('22:10','06:25',82,104,150,24,82),
-    37:sl('22:45','06:50',74,96,162,28,77),  36:sl('23:00','07:05',69,91,170,30,73),
-    35:sl('22:20','06:35',80,102,152,26,80), 34:sl('22:30','06:45',78,100,156,26,79),
-    33:sl('22:15','06:30',83,105,148,24,83), 32:sl('22:45','06:55',75,97,160,28,77),
-    31:sl('22:00','06:15',86,108,144,22,84),
-    // Phase 4 — peak sleep
-    30:sl('22:00','06:10',92,114,138,16,88), 29:sl('21:45','06:00',96,118,134,12,91),
-    28:sl('22:10','06:20',90,112,140,18,87), 27:sl('22:00','06:15',93,115,138,14,89),
-    26:sl('21:50','06:05',95,117,136,12,91), 25:sl('22:15','06:25',89,110,143,18,86),
-    24:sl('22:30','06:40',84,106,149,21,83), 23:sl('22:00','06:10',94,116,136,14,90),
-    22:sl('21:45','06:00',97,119,133,11,92), 21:sl('22:05','06:15',91,113,139,17,88),
-    20:sl('22:00','06:10',93,115,138,14,89), 19:sl('21:55','06:05',95,117,136,12,91),
-    18:sl('22:20','06:30',88,110,144,18,86), 17:sl('22:00','06:10',92,114,138,16,88),
-    16:sl('21:50','06:05',96,118,134,12,91), 15:sl('22:10','06:20',90,112,140,18,87),
-    // Phase 5 — solid, realistic
-    14:sl('22:30','06:40',82,104,150,24,81), 13:sl('22:15','06:25',87,108,145,20,84),
-    12:sl('23:30','07:20',68,88,174,30,71),  11:sl('22:20','06:30',85,106,148,21,83),
-    10:sl('22:45','06:55',79,101,154,26,79), 9:sl('00:00','07:30',55,76,189,40,60),
-    8:sl('22:30','06:40',83,105,150,22,82),  7:sl('22:15','06:30',88,109,144,19,85),
-    6:sl('22:00','06:15',91,113,140,16,87),  5:sl('23:00','07:10',70,91,169,30,73),
-    4:sl('22:25','06:35',85,107,148,20,83),  3:sl('22:45','06:55',80,102,152,26,80),
-    2:sl('22:30','06:45',83,105,150,22,82),  1:sl('22:00','06:10',90,112,142,16,87),
-  };
-  Object.entries(allPhases).forEach(([daysAgo,data])=>{
-    const d=new Date(); d.setDate(d.getDate()-parseInt(daysAgo));
-    const dddk=d.toISOString().slice(0,10);
-    S.days[dddk]={
-      meals:data.meals.map((f,i)=>({...f,id:'f'+daysAgo+'_'+i})),
-      activities:data.acts,
-      steps:data.steps,
-      tasks:[],
-      note:data.note||'',
-      sleep:sleepData[parseInt(daysAgo)]||null,
-    };
-  });
-
-  // ── Weight: trending down from 87kg → ~81kg over 90 days ──
-  // With realistic noise and a plateau during the slump phase
-  let w=87.2;
-  for(let i=90;i>=0;i--){
-    const d=new Date(); d.setDate(d.getDate()-i);
-    const dddk=d.toISOString().slice(0,10);
-    let drift;
-    if(i>=61)       drift=-0.065 + (Math.random()-.45)*0.15; // Phase 1: steady drop
-    else if(i>=46)  drift=+0.04  + (Math.random()-.3)*0.18;  // Phase 2: slump — weight creeps up
-    else if(i>=31)  drift=-0.04  + (Math.random()-.45)*0.14; // Phase 3: rebuilding drop
-    else if(i>=15)  drift=-0.09  + (Math.random()-.4)*0.12;  // Phase 4: peak — fastest drop
-    else            drift=-0.055 + (Math.random()-.42)*0.13; // Phase 5: steady drop
-
-    w=Math.max(79,w+drift);
-    // Skip ~15% of days (realistic — people don't weigh in every day)
-    const skipDay=Math.random()<0.15;
-    if(!skipDay){
-      S.weightLog.push({
-        id:'w'+i,
-        date:dddk,
-        weight:Math.round(w*10)/10,
-        bodyFat:null,
-        notes:i===90?'Starting weight':i===46?'Need to get back on track':''
-      });
-    }
-  }
-  S.weightLog.sort((a,b)=>a.date.localeCompare(b.date));
-
-  // Recurring tasks
-  S.recurringTasks=[
-    {id:'rt1',text:'Train — gym or run'},
-    {id:'rt2',text:'Hit daily protein target'},
-    {id:'rt3',text:'8hrs sleep'},
-  ];
-
-  S.height=178;
-  S.seeded=true;
-  try { lsSave(); } catch(e) { console.warn('Seed persist error:',e); }
-}
 
 // ═══════════════════════════════════════════
 // HEADER
@@ -4301,16 +4023,21 @@ function updateWithingsUI(){
 }
 
 // Check for Withings OAuth callback on page load
-function checkWithingsCallback(){
-  const hash = window.location.hash;
+// Store code immediately before anything else clears the URL
+const _withingsCallbackCode = (()=>{
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   const state = params.get('state');
   if(code && state === 'bitfit'){
-    // Clear the URL params
     window.history.replaceState({}, document.title, window.location.pathname);
-    // Wait for auth to complete first then handle
-    setTimeout(() => withingsHandleCallback(code), 1500);
+    return code;
+  }
+  return null;
+})();
+
+function checkWithingsCallback(){
+  if(_withingsCallbackCode){
+    withingsHandleCallback(_withingsCallbackCode);
   }
 }
 
@@ -4501,7 +4228,8 @@ sb.auth.onAuthStateChange(async (event, session)=>{
 });
 
 boot();
-checkWithingsCallback();
+// Delay Withings callback check to avoid conflicting with Supabase auth lock
+setTimeout(checkWithingsCallback, 2000);
 
 setInterval(()=>{
   updateHeader();
