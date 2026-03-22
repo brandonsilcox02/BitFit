@@ -1812,7 +1812,7 @@ async function cloudSave(){
 let _saveTimer = null;
 function persist(){
   lsSave();
-  if(!_currentUser) return;
+  if(!_currentUser || _receivingRemote) return; // don't save back when receiving remote update
   setSyncState('syncing');
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(async ()=>{
@@ -4315,10 +4315,10 @@ updateHeader();
 
 // ── Real-time sync — listens for changes from other devices ──
 let _realtimeChannel = null;
+let _receivingRemote = false; // flag to prevent save loop
 
 function startRealtime(){
   if(!_currentUser) return;
-  // Clean up any existing subscription
   if(_realtimeChannel) sb.removeChannel(_realtimeChannel);
 
   _realtimeChannel = sb
@@ -4327,14 +4327,15 @@ function startRealtime(){
       { event:'UPDATE', schema:'public', table:'user_data',
         filter:`user_id=eq.${_currentUser.id}` },
       (payload) => {
-        // Another device saved — pull the new data in
         if(payload.new?.data){
+          _receivingRemote = true; // block persist during remote update
           initState(payload.new.data);
           lsSave();
           renderCurrentView();
           setTimeout(renderWeightLine, 120);
           setSyncState('ok');
-          showToast('🔄 Synced from another device');
+          showToast('🔄 Synced');
+          _receivingRemote = false;
         }
       }
     )
