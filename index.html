@@ -1103,14 +1103,14 @@ html,body{height:100%;overflow:hidden;font-family:'Figtree',sans-serif;backgroun
     <div id="weightLog"></div>
   </div>
 
-  <!-- Future -->
-  <div class="connect-card">
+  <!-- Withings Connect -->
+  <div class="connect-card" id="withingsCard" style="cursor:pointer;opacity:1;border-style:solid" onclick="withingsConnect()">
     <div class="connect-icon">⚖️</div>
     <div class="connect-body">
-      <div class="connect-title">Connect Withings Scale</div>
-      <div class="connect-sub">Auto-sync weight, body fat %, muscle mass and more every morning.</div>
+      <div class="connect-title" id="withingsTitle">Connect Withings Scale</div>
+      <div class="connect-sub" id="withingsSub">Auto-sync weight, body fat %, muscle mass and more.</div>
     </div>
-    <div class="connect-badge">Coming Soon</div>
+    <div id="withingsBadge" class="connect-badge" style="background:var(--orange-soft);color:var(--orange);border:1px solid var(--orange-mid)">Connect</div>
   </div>
 
   <!-- Data sync -->
@@ -3250,6 +3250,7 @@ function renderBody(){
 
   // Weight log list — rendered by renderWeightLog()
   renderWeightLog();
+  updateWithingsUI();
 }
 
 function updateBMI(){
@@ -4191,6 +4192,129 @@ function deleteSleep(dk){
 }
 
 // ═══════════════════════════════════════════
+// WITHINGS INTEGRATION
+// ═══════════════════════════════════════════
+const WITHINGS_CLIENT_ID = '05e8b30ca8ae04ec208005263af7d92373244c7ef23fe75088aa811a4a57d906';
+const WITHINGS_REDIRECT  = 'https://bit-fit.vercel.app';
+const EDGE_FN_URL        = 'https://lvfepcneeojfpbptqepx.supabase.co/functions/v1/withings-auth';
+
+async function callEdgeFunction(payload){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) return { error: 'Not logged in' };
+  const res = await fetch(EDGE_FN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+function withingsConnect(){
+  // If already connected — offer to sync instead
+  if(S.withingsConnected){
+    withingsSync();
+    return;
+  }
+  // Build Withings OAuth URL
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: WITHINGS_CLIENT_ID,
+    redirect_uri: WITHINGS_REDIRECT,
+    scope: 'user.metrics',
+    state: 'bitfit',
+  });
+  const url = 'https://account.withings.com/oauth2_user/authorize2?' + params;
+  window.location.href = url;
+}
+
+async function withingsHandleCallback(code){
+  showToast('⚖️ Connecting Withings...');
+  const result = await callEdgeFunction({ action: 'exchange', code });
+  if(result.error){
+    showToast('❌ Withings error: ' + result.error);
+    return;
+  }
+  S.withingsConnected = true;
+  persist();
+  updateWithingsUI();
+  showToast('✅ Withings connected!');
+  // Immediately sync data
+  await withingsSync();
+}
+
+async function withingsSync(){
+  showToast('⚖️ Syncing from Withings...');
+  const result = await callEdgeFunction({ action: 'sync' });
+  if(result.error){
+    showToast('❌ Sync error: ' + result.error);
+    return;
+  }
+  const measurements = result.measurements || [];
+  if(!measurements.length){ showToast('No new Withings data'); return; }
+
+  // Merge into weightLog
+  let added = 0;
+  measurements.forEach(m => {
+    if(!m.weight) return;
+    const existing = S.weightLog.find(e => e.date === m.date);
+    if(existing){
+      // Update with Withings data
+      existing.weight    = m.weight;
+      if(m.bodyFat)    existing.bodyFat    = m.bodyFat;
+      if(m.muscleMass) existing.muscleMass = m.muscleMass;
+      if(m.boneMass)   existing.boneMass   = m.boneMass;
+      if(m.heartRate)  existing.heartRate  = m.heartRate;
+      existing.source = 'withings';
+    } else {
+      S.weightLog.push({
+        id: 'w' + m.date,
+        date: m.date,
+        weight: m.weight,
+        bodyFat: m.bodyFat || null,
+        muscleMass: m.muscleMass || null,
+        boneMass: m.boneMass || null,
+        heartRate: m.heartRate || null,
+        notes: '',
+        source: 'withings',
+      });
+      added++;
+    }
+  });
+  S.weightLog.sort((a,b) => a.date.localeCompare(b.date));
+  persist();
+  renderBody();
+  showToast(`✅ Synced ${measurements.length} Withings entries`);
+}
+
+function updateWithingsUI(){
+  const title  = document.getElementById('withingsTitle');
+  const sub    = document.getElementById('withingsSub');
+  const badge  = document.getElementById('withingsBadge');
+  if(S.withingsConnected){
+    if(title) title.textContent = 'Withings Scale Connected';
+    if(sub)   sub.textContent   = 'Tap to sync latest measurements';
+    if(badge){ badge.textContent='Sync Now'; badge.style.background='#f0fdf8'; badge.style.color='var(--green)'; badge.style.borderColor='var(--green)'; }
+  }
+}
+
+// Check for Withings OAuth callback on page load
+function checkWithingsCallback(){
+  const hash = window.location.hash;
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const state = params.get('state');
+  if(code && state === 'bitfit'){
+    // Clear the URL params
+    window.history.replaceState({}, document.title, window.location.pathname);
+    // Wait for auth to complete first then handle
+    setTimeout(() => withingsHandleCallback(code), 1500);
+  }
+}
+
+// ═══════════════════════════════════════════
 // EXPORT / IMPORT
 // ═══════════════════════════════════════════
 function exportData(){
@@ -4377,6 +4501,7 @@ sb.auth.onAuthStateChange(async (event, session)=>{
 });
 
 boot();
+checkWithingsCallback();
 
 setInterval(()=>{
   updateHeader();
