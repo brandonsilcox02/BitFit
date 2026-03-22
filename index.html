@@ -1742,6 +1742,10 @@ function setSyncState(state){
 // localStorage — offline fallback only, never used as primary source
 const lsLoad  = () => { try{return JSON.parse(localStorage.getItem('grind_v7')||'{}');}catch{return{};} };
 const lsSave  = () => { try{localStorage.setItem('grind_v7', JSON.stringify(S));}catch{} };
+const lsClear = () => { try{localStorage.removeItem('grind_v7');}catch{} };
+
+// Clear stale localStorage on every boot — Supabase is the source of truth
+lsClear();
 
 // Start with empty state — cloudLoad will populate it
 let S = {};
