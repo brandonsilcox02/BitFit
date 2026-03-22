@@ -1744,9 +1744,6 @@ const lsLoad  = () => { try{return JSON.parse(localStorage.getItem('grind_v7')||
 const lsSave  = () => { try{localStorage.setItem('grind_v7', JSON.stringify(S));}catch{} };
 const lsClear = () => { try{localStorage.removeItem('grind_v7');}catch{} };
 
-// Clear stale localStorage on every boot — Supabase is the source of truth
-lsClear();
-
 // Start with empty state — cloudLoad will populate it
 let S = {};
 
@@ -1781,16 +1778,15 @@ async function cloudLoad(){
   if(error && error.code !== 'PGRST116'){
     setSyncState('error');
     console.warn('Cloud load error:', error.message);
-    // Fall back to localStorage if cloud fails
     initState(lsLoad());
-      return;
+    return;
   }
   if(data?.data && Object.keys(data.data).length > 0){
-    // Always trust cloud over local cache
+    lsClear(); // wipe stale local cache
     initState(data.data);
-    lsSave(); // update local cache to match
+    lsSave();
   } else {
-    // New user — start clean
+    lsClear();
     initState({});
     await cloudSave();
   }
