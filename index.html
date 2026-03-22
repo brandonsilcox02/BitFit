@@ -1887,6 +1887,7 @@ function renderCurrentView(){
 // DASHBOARD
 // ═══════════════════════════════════════════
 function renderDashboard(){
+  if(!S.days) return;
   const dk=activeKey(), day=getDay(dk);
   const now=new Date();
   const ds=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -2082,6 +2083,7 @@ function getTodayMacros(){
 }
 
 function renderEat(){
+  if(!S.plans) return;
   const plan=getActivePlan(), macros=getTodayMacros();
   const calT=plan.calories||2500, protT=plan.protein||180;
   const set=setEl;
@@ -2597,6 +2599,7 @@ function renderMoveHeroStats(){
 }
 
 function renderMove(){
+  if(!S.days) return;
   const dk=activeKey(), day=getDay(dk);
   const set=setEl;
 
@@ -2901,6 +2904,7 @@ function saveSteps(){
 // BODY
 // ═══════════════════════════════════════════
 function renderBody(){
+  if(!S.weightLog) return; // not ready yet — cloudLoad still in progress
   const log=S.weightLog;
   const set=setEl;
 
@@ -3637,6 +3641,7 @@ function setSleepRange(range, btn){
 }
 
 function renderSleep(){
+  if(!S.days) return;
   const set=setEl;
   const dk=activeKey();
   const day=getDay(dk);
